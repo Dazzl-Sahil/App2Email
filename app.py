@@ -10,7 +10,7 @@ from io import BytesIO
 st.set_page_config(page_title="Bulk Email Sender", page_icon="📧", layout="centered")
 
 st.title("📧 Bulk Email Sender")
-st.markdown("Send personalized bulk emails with placeholders and delay control.")
+st.markdown("Send personalized professional bulk emails with placeholders and delay control.")
 
 # --- Login Section ---
 with st.container():
@@ -58,7 +58,13 @@ with st.container():
     body_template = st.text_area(
         "Email Body (use {first_name}, {last_name}, {full_name})",
         height=200,
-        placeholder="Dear {first_name},\n\nGreetings! Hope this email finds you well.\n\nYour message here.\n\nRegards,\n{full_name}"
+        placeholder=(
+            "Dear {first_name},\n\n"
+            "Hope this email finds you well!\n\n"
+            "I'm writing this email to inform you that I sent this email via Automated email app created by me.\n\n"
+            "Let me know your thoughts on this email.\n\n"
+            "Best Regards,\n{full_name}"
+        )
     )
 
 # --- Delay Control ---
@@ -99,14 +105,24 @@ if st.button("🚀 Send Emails"):
                 first_name=first, last_name=last, full_name=full_name
             )
 
-            # Convert newlines to <br> for HTML formatting
-            body_html = body.replace("\n", "<br>")
+            # Professional HTML formatting
+            body_lines = body.split("\n")
+            body_html_content = "".join([f"<p>{line.strip()}</p>" for line in body_lines if line.strip()])
+            html_template = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                {body_html_content}
+                <br>
+                <p>Best Regards,<br>{sender_name}</p>
+              </body>
+            </html>
+            """
 
             msg = MIMEMultipart()
             msg["From"] = f"{sender_name} <{sender_email}>"
             msg["To"] = recipient
             msg["Subject"] = subject
-            msg.attach(MIMEText(body_html, "html"))
+            msg.attach(MIMEText(html_template, "html"))
 
             try:
                 server.sendmail(sender_email, recipient, msg.as_string())
