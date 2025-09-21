@@ -23,20 +23,38 @@ with st.container():
         app_password = st.text_input("App Password", type="password")
 
 # --- Upload Section ---
+df = None
 with st.container():
     st.subheader("📂 Upload Recipient List")
-    st.markdown("CSV must contain: **email, first_name, last_name**")
+    st.markdown("CSV must contain: **first_name,last_name,email**")
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.write("📊 Preview of uploaded data (first 5 rows):")
-        st.dataframe(df.head())
+        try:
+            df = pd.read_csv(uploaded_file)
+
+            # Check required columns
+            required_cols = {"email", "first_name", "last_name"}
+            if not required_cols.issubset(df.columns):
+                st.error(f"❌ CSV missing required columns. Found: {list(df.columns)}")
+                df = None
+            else:
+                st.write("📊 Preview of uploaded data (first 5 rows):")
+                st.dataframe(df.head())
+
+        except pd.errors.EmptyDataError:
+            st.error("❌ Uploaded file is empty. Please upload a valid CSV.")
+        except pd.errors.ParserError:
+            st.error("❌ CSV is not properly formatted. Ensure values are separated by commas.")
+        except Exception as e:
+            st.error(f"❌ Could not read CSV: {e}")
 
 # --- Email Template Section ---
 with st.container():
     st.subheader("📝 Email Template")
-    subject_template = st.text_input("Subject (use {full_name}, {first_name}, {last_name})")
+    subject_template = st.text_input(
+        "Subject (use {full_name}, {first_name}, {last_name})"
+    )
     body_template = st.text_area(
         "Email Body (use {first_name}, {last_name}, {full_name})",
         height=200,
@@ -46,14 +64,19 @@ with st.container():
 # --- Delay Control ---
 with st.container():
     st.subheader("⏳ Sending Options")
-    delay = st.slider("Delay between emails (seconds)", min_value=10, max_value=120, value=30, step=5)
+    delay = st.slider(
+        "Delay between emails (seconds)", min_value=10, max_value=120, value=30, step=5
+    )
 
 # --- Send Button ---
 if st.button("🚀 Send Emails"):
-    if uploaded_file is not None and sender_email and app_password:
-        df = pd.read_csv(uploaded_file)
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender_email, app_password)
+    if df is not None and sender_email and app_password:
+        try:
+            server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+            server.login(sender_email, app_password)
+        except Exception as e:
+            st.error(f"❌ Login failed: {e}")
+            st.stop()
 
         progress = st.progress(0)
         total = len(df)
@@ -63,14 +86,18 @@ if st.button("🚀 Send Emails"):
         failed_emails = []
 
         for idx, row in df.iterrows():
-            recipient = row['email']
-            first = row['first_name']
-            last = row['last_name']
+            recipient = row["email"]
+            first = row["first_name"]
+            last = row["last_name"]
             full_name = f"{first} {last}"
 
             # Replace placeholders
-            subject = subject_template.format(first_name=first, last_name=last, full_name=full_name)
-            body = body_template.format(first_name=first, last_name=last, full_name=full_name)
+            subject = subject_template.format(
+                first_name=first, last_name=last, full_name=full_name
+            )
+            body = body_template.format(
+                first_name=first, last_name=last, full_name=full_name
+            )
 
             # Convert newlines to <br> for HTML formatting
             body_html = body.replace("\n", "<br>")
@@ -86,12 +113,14 @@ if st.button("🚀 Send Emails"):
                 success_count += 1
             except Exception as e:
                 fail_count += 1
-                failed_emails.append({
-                    "email": recipient,
-                    "first_name": first,
-                    "last_name": last,
-                    "error": str(e)
-                })
+                failed_emails.append(
+                    {
+                        "email": recipient,
+                        "first_name": first,
+                        "last_name": last,
+                        "error": str(e),
+                    }
+                )
 
             progress.progress((idx + 1) / total)
 
@@ -102,7 +131,9 @@ if st.button("🚀 Send Emails"):
         server.quit()
 
         # --- Final Summary ---
-        st.success(f"🎉 Process completed!\n\n✅ Sent: {success_count}\n❌ Failed: {fail_count}\n📩 Total: {total}")
+        st.success(
+            f"🎉 Process completed!\n\n✅ Sent: {success_count}\n❌ Failed: {fail_count}\n📩 Total: {total}"
+        )
 
         # --- Export failed emails if any ---
         if fail_count > 0:
@@ -116,7 +147,7 @@ if st.button("🚀 Send Emails"):
                 label="⬇️ Download Failed Emails CSV",
                 data=buffer,
                 file_name="failed_emails.csv",
-                mime="text/csv"
+                mime="text/csv",
             )
     else:
-        st.warning("⚠️ Please provide login details and upload CSV.")
+        st.warning("⚠️ Please provide login details and upload a valid CSV.")
