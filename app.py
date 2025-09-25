@@ -112,8 +112,7 @@ if st.button("🚀 Send Emails"):
             <html>
               <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 {body_html_content}
-                <br>
-                <p>Best Regards,<br>{sender_name}</p>
+                <br> {sender_name}</p>
               </body>
             </html>
             """
